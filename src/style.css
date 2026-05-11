@@ -804,6 +804,14 @@ h2 {
   text-decoration: line-through;
 }
 
+.task-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+
+.icon-button,
 .delete-button {
   width: 32px;
   height: 32px;
@@ -816,10 +824,88 @@ h2 {
   transition: all 0.18s ease;
 }
 
+.icon-button:hover:not(:disabled) {
+  background: rgba(192, 132, 252, 0.1);
+  border-color: rgba(192, 132, 252, 0.3);
+  color: #d8b4fe;
+}
+
 .delete-button:hover {
   background: rgba(253, 164, 175, 0.1);
   border-color: rgba(253, 164, 175, 0.3);
   color: #fda4af;
+}
+
+.task-copy[role='button'] {
+  cursor: text;
+  border-radius: 8px;
+  padding: 2px 4px;
+  margin: -2px -4px;
+  transition: background 0.15s ease;
+}
+
+.task-copy[role='button']:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.task.editing {
+  background: rgba(192, 132, 252, 0.06);
+  border-color: rgba(192, 132, 252, 0.25);
+  align-items: stretch;
+}
+
+.task-edit {
+  flex: 1;
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.task-edit-text {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--line-strong);
+  background: rgba(0, 0, 0, 0.25);
+  color: var(--ink);
+  font-size: 0.97rem;
+  outline: none;
+}
+
+.task-edit-text:focus {
+  border-color: rgba(192, 132, 252, 0.5);
+  box-shadow: 0 0 0 3px rgba(192, 132, 252, 0.12);
+}
+
+.task-edit-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.task-edit-buttons {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.primary-button-sm {
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: 0;
+  background: var(--accent-grad);
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 600;
+  box-shadow: 0 4px 12px rgba(192, 132, 252, 0.3);
+  transition: transform 0.15s ease, filter 0.15s ease;
+}
+
+.primary-button-sm:hover:not(:disabled) {
+  transform: translateY(-1px);
+  filter: brightness(1.08);
 }
 
 .empty-state {

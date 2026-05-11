@@ -123,6 +123,10 @@ export default function App() {
   )
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const draftRef = useRef<HTMLInputElement | null>(null)
+  const editInputRef = useRef<HTMLInputElement | null>(null)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editText, setEditText] = useState('')
+  const [editDue, setEditDue] = useState('')
 
   const completed = tasks.filter((task) => task.done).length
   const progress = tasks.length === 0 ? 0 : completed / tasks.length
@@ -326,6 +330,63 @@ export default function App() {
     }
   }
 
+  function startEdit(task: Task) {
+    setEditingId(task.id)
+    setEditText(task.text)
+    setEditDue(task.dueDate ?? '')
+  }
+
+  function cancelEdit() {
+    setEditingId(null)
+    setEditText('')
+    setEditDue('')
+  }
+
+  async function saveEdit(taskId: string) {
+    const cleanText = editText.trim()
+    if (!cleanText) return
+
+    const target = tasks.find((task) => task.id === taskId)
+    if (!target) {
+      cancelEdit()
+      return
+    }
+
+    const nextDue = editDue || null
+    if (cleanText === target.text && nextDue === target.dueDate) {
+      cancelEdit()
+      return
+    }
+
+    const snapshot = target
+    setTasks((current) =>
+      current.map((task) =>
+        task.id === taskId ? { ...task, text: cleanText, dueDate: nextDue } : task,
+      ),
+    )
+    cancelEdit()
+
+    if (supabase && !taskId.startsWith('temp-')) {
+      const { error } = await supabase
+        .from('tasks')
+        .update({ text: cleanText, due_date: nextDue })
+        .eq('id', taskId)
+
+      if (error) {
+        setTasks((current) =>
+          current.map((task) => (task.id === taskId ? snapshot : task)),
+        )
+        if (isMissingColumnError(error)) {
+          setStatus('setup')
+          setErrorMessage(null)
+        } else {
+          setErrorMessage(error.message)
+          setStatus('error')
+        }
+      }
+    }
+  }
+
   async function deleteTask(taskId: string) {
     const snapshot = tasks
     setTasks((current) => current.filter((task) => task.id !== taskId))
@@ -405,6 +466,13 @@ export default function App() {
     }, 5000)
     return () => window.clearInterval(id)
   }, [status])
+
+  useEffect(() => {
+    if (editingId && editInputRef.current) {
+      editInputRef.current.focus()
+      editInputRef.current.select()
+    }
+  }, [editingId])
 
   return (
     <main className="shell">
@@ -624,7 +692,10 @@ export default function App() {
             )}
 
             {orderedTasks.map((task) => (
-              <li key={task.id} className={task.done ? 'task done' : 'task'}>
+              <li
+                key={task.id}
+                className={`${task.done ? 'task done' : 'task'}${editingId === task.id ? ' editing' : ''}`}
+              >
                 <button
                   type="button"
                   className="task-toggle"
@@ -632,6 +703,7 @@ export default function App() {
                   aria-label={
                     task.done ? 'Marcar como pendiente' : 'Marcar como completada'
                   }
+                  disabled={editingId === task.id}
                 >
                   <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
                     <path
@@ -645,43 +717,138 @@ export default function App() {
                   </svg>
                 </button>
 
-                <div className="task-copy">
-                  <p>{task.text}</p>
-                  <small className="task-meta">
-                    <span className={`owner-tag owner-${task.owner.toLowerCase()}`}>
-                      {task.owner}
-                    </span>
-                    {(() => {
-                      const due = formatDueLabel(task.dueDate)
-                      if (!due) return null
-                      return (
-                        <span className={`due-tag due-${task.done ? 'done' : due.tone}`}>
-                          <svg viewBox="0 0 24 24" width="11" height="11" aria-hidden="true">
-                            <rect x="3" y="5" width="18" height="16" rx="3" stroke="currentColor" strokeWidth="2" fill="none" />
-                            <path d="M3 9h18M8 3v4M16 3v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                          </svg>
-                          {due.label}
-                        </span>
-                      )
-                    })()}
-                  </small>
-                </div>
-
-                <button
-                  type="button"
-                  className="delete-button"
-                  onClick={() => deleteTask(task.id)}
-                  aria-label="Eliminar tarea"
-                >
-                  <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-                    <path
-                      d="M6 6l12 12M18 6L6 18"
-                      stroke="currentColor"
-                      strokeWidth="2.2"
-                      strokeLinecap="round"
+                {editingId === task.id ? (
+                  <form
+                    className="task-edit"
+                    onSubmit={(event) => {
+                      event.preventDefault()
+                      saveEdit(task.id)
+                    }}
+                  >
+                    <input
+                      ref={editInputRef}
+                      type="text"
+                      className="task-edit-text"
+                      value={editText}
+                      onChange={(event) => setEditText(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Escape') cancelEdit()
+                      }}
+                      aria-label="Editar texto"
                     />
-                  </svg>
-                </button>
+                    <div className="task-edit-row">
+                      <label className={editDue ? 'date-field has-value' : 'date-field'}>
+                        <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+                          <rect x="3" y="5" width="18" height="16" rx="3" stroke="currentColor" strokeWidth="1.8" fill="none" />
+                          <path d="M3 9h18M8 3v4M16 3v4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                        </svg>
+                        <input
+                          type="date"
+                          value={editDue}
+                          onChange={(event) => setEditDue(event.target.value)}
+                          aria-label="Editar fecha"
+                        />
+                        {editDue && (
+                          <button
+                            type="button"
+                            className="date-clear"
+                            onClick={() => setEditDue('')}
+                            aria-label="Quitar fecha"
+                          >
+                            x
+                          </button>
+                        )}
+                      </label>
+                      <div className="task-edit-buttons">
+                        <button
+                          type="button"
+                          className="ghost-button ghost-button-sm"
+                          onClick={cancelEdit}
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          type="submit"
+                          className="primary-button-sm"
+                          disabled={!editText.trim()}
+                        >
+                          Guardar
+                        </button>
+                      </div>
+                    </div>
+                  </form>
+                ) : (
+                  <div
+                    className="task-copy"
+                    onClick={() => !task.done && startEdit(task)}
+                    role={task.done ? undefined : 'button'}
+                    tabIndex={task.done ? undefined : 0}
+                    onKeyDown={(event) => {
+                      if (!task.done && (event.key === 'Enter' || event.key === ' ')) {
+                        event.preventDefault()
+                        startEdit(task)
+                      }
+                    }}
+                  >
+                    <p>{task.text}</p>
+                    <small className="task-meta">
+                      <span className={`owner-tag owner-${task.owner.toLowerCase()}`}>
+                        {task.owner}
+                      </span>
+                      {(() => {
+                        const due = formatDueLabel(task.dueDate)
+                        if (!due) return null
+                        return (
+                          <span className={`due-tag due-${task.done ? 'done' : due.tone}`}>
+                            <svg viewBox="0 0 24 24" width="11" height="11" aria-hidden="true">
+                              <rect x="3" y="5" width="18" height="16" rx="3" stroke="currentColor" strokeWidth="2" fill="none" />
+                              <path d="M3 9h18M8 3v4M16 3v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                            </svg>
+                            {due.label}
+                          </span>
+                        )
+                      })()}
+                    </small>
+                  </div>
+                )}
+
+                {editingId !== task.id && (
+                  <div className="task-actions">
+                    <button
+                      type="button"
+                      className="icon-button"
+                      onClick={() => startEdit(task)}
+                      aria-label="Editar tarea"
+                      disabled={task.done}
+                    >
+                      <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+                        <path
+                          d="M4 20h4l10-10-4-4L4 16v4z"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinejoin="round"
+                          fill="none"
+                        />
+                        <path d="M14 6l4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                      </svg>
+                    </button>
+                    <button
+                      type="button"
+                      className="delete-button"
+                      onClick={() => deleteTask(task.id)}
+                      aria-label="Eliminar tarea"
+                    >
+                      <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                        <path
+                          d="M6 6l12 12M18 6L6 18"
+                          stroke="currentColor"
+                          strokeWidth="2.2"
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+                )}
               </li>
             ))}
           </ul>
