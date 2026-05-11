@@ -11,6 +11,7 @@ type Task = {
   text: string
   done: boolean
   owner: Owner
+  dueDate: string | null
   createdAt: number
 }
 
@@ -25,6 +26,42 @@ function isMissingTableError(error: { code?: string; message?: string } | null) 
   return msg.includes('does not exist') || msg.includes('relation') || msg.includes('schema cache')
 }
 
+function isMissingColumnError(error: { code?: string; message?: string } | null) {
+  if (!error) return false
+  if (error.code === '42703' || error.code === 'PGRST204') return true
+  const msg = error.message?.toLowerCase() ?? ''
+  return msg.includes('due_date') && (msg.includes('does not exist') || msg.includes('column'))
+}
+
+function todayKey() {
+  const now = new Date()
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+}
+
+function daysBetween(dateKey: string) {
+  const [y, m, d] = dateKey.split('-').map(Number)
+  if (!y || !m || !d) return null
+  const target = new Date(y, m - 1, d).getTime()
+  const now = new Date()
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
+  return Math.round((target - today) / (1000 * 60 * 60 * 24))
+}
+
+function formatDueLabel(dateKey: string | null) {
+  if (!dateKey) return null
+  const diff = daysBetween(dateKey)
+  if (diff === null) return null
+  if (diff === 0) return { label: 'Hoy', tone: 'today' as const }
+  if (diff === 1) return { label: 'Manana', tone: 'soon' as const }
+  if (diff === -1) return { label: 'Ayer', tone: 'overdue' as const }
+  if (diff < -1) return { label: `Hace ${Math.abs(diff)} dias`, tone: 'overdue' as const }
+  if (diff < 7) return { label: `En ${diff} dias`, tone: 'soon' as const }
+  const [y, m, d] = dateKey.split('-').map(Number)
+  const date = new Date(y, m - 1, d)
+  const fmt = date.toLocaleDateString('es', { day: 'numeric', month: 'short' })
+  return { label: fmt, tone: 'future' as const }
+}
+
 const localKey = 'juntos-check.tasks'
 
 const starterTasks: Task[] = [
@@ -33,6 +70,7 @@ const starterTasks: Task[] = [
     text: 'Elegir una peli para el viernes',
     done: false,
     owner: 'Tu',
+    dueDate: null,
     createdAt: Date.now() - 1000 * 60 * 60,
   },
   {
@@ -40,6 +78,7 @@ const starterTasks: Task[] = [
     text: 'Comprar snacks',
     done: true,
     owner: 'Ella',
+    dueDate: null,
     createdAt: Date.now() - 1000 * 60 * 30,
   },
 ]
@@ -50,6 +89,7 @@ function rowToTask(row: TaskRow): Task {
     text: row.text,
     done: row.done,
     owner: row.owner,
+    dueDate: row.due_date ?? null,
     createdAt: new Date(row.created_at).getTime(),
   }
 }
@@ -76,6 +116,7 @@ export default function App() {
     isSupabaseConfigured ? [] : readLocalTasks(),
   )
   const [draft, setDraft] = useState('')
+  const [dueDraft, setDueDraft] = useState('')
   const [owner, setOwner] = useState<Owner>('Tu')
   const [status, setStatus] = useState<SyncStatus>(
     isSupabaseConfigured ? 'loading' : 'offline',
@@ -109,7 +150,7 @@ export default function App() {
       if (cancelled) return
 
       if (error) {
-        if (isMissingTableError(error)) {
+        if (isMissingTableError(error) || isMissingColumnError(error)) {
           setStatus('setup')
           setErrorMessage(null)
         } else {
@@ -169,8 +210,15 @@ export default function App() {
   const orderedTasks = useMemo(
     () =>
       [...tasks].sort((left, right) => {
-        if (left.done === right.done) return right.createdAt - left.createdAt
-        return Number(left.done) - Number(right.done)
+        if (left.done !== right.done) return Number(left.done) - Number(right.done)
+        if (left.dueDate && right.dueDate) {
+          if (left.dueDate !== right.dueDate) return left.dueDate.localeCompare(right.dueDate)
+        } else if (left.dueDate) {
+          return -1
+        } else if (right.dueDate) {
+          return 1
+        }
+        return right.createdAt - left.createdAt
       }),
     [tasks],
   )
@@ -181,6 +229,8 @@ export default function App() {
     const cleanDraft = draft.trim()
     if (!cleanDraft) return
 
+    const dueDate = dueDraft || null
+
     if (supabase) {
       const tempId = `temp-${crypto.randomUUID()}`
       const optimistic: Task = {
@@ -188,21 +238,32 @@ export default function App() {
         text: cleanDraft,
         done: false,
         owner,
+        dueDate,
         createdAt: Date.now(),
       }
       setTasks((current) => [optimistic, ...current])
       setDraft('')
+      setDueDraft('')
       draftRef.current?.focus()
+
+      const payload: { text: string; owner: Owner; due_date?: string } = {
+        text: cleanDraft,
+        owner,
+      }
+      if (dueDate) payload.due_date = dueDate
 
       const { data, error } = await supabase
         .from('tasks')
-        .insert({ text: cleanDraft, owner })
+        .insert(payload)
         .select()
         .single()
 
       if (error || !data) {
         setTasks((current) => current.filter((task) => task.id !== tempId))
         if (isMissingTableError(error)) {
+          setStatus('setup')
+          setErrorMessage(null)
+        } else if (isMissingColumnError(error)) {
           setStatus('setup')
           setErrorMessage(null)
         } else {
@@ -227,11 +288,13 @@ export default function App() {
         text: cleanDraft,
         done: false,
         owner,
+        dueDate,
         createdAt: Date.now(),
       },
       ...current,
     ])
     setDraft('')
+    setDueDraft('')
   }
 
   async function toggleTask(taskId: string) {
@@ -502,19 +565,46 @@ export default function App() {
               </button>
             </div>
 
-            <div className="owner-switch" role="tablist" aria-label="Quien agrega">
-              {(['Tu', 'Ella'] as const).map((person) => (
-                <button
-                  key={person}
-                  type="button"
-                  role="tab"
-                  aria-selected={person === owner}
-                  className={person === owner ? 'chip active' : 'chip'}
-                  onClick={() => setOwner(person)}
-                >
-                  {person}
-                </button>
-              ))}
+            <div className="form-meta">
+              <div className="owner-switch" role="tablist" aria-label="Quien agrega">
+                {(['Tu', 'Ella'] as const).map((person) => (
+                  <button
+                    key={person}
+                    type="button"
+                    role="tab"
+                    aria-selected={person === owner}
+                    className={person === owner ? 'chip active' : 'chip'}
+                    onClick={() => setOwner(person)}
+                  >
+                    {person}
+                  </button>
+                ))}
+              </div>
+
+              <label className={dueDraft ? 'date-field has-value' : 'date-field'}>
+                <span className="sr-only">Fecha (opcional)</span>
+                <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+                  <rect x="3" y="5" width="18" height="16" rx="3" stroke="currentColor" strokeWidth="1.8" fill="none" />
+                  <path d="M3 9h18M8 3v4M16 3v4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                </svg>
+                <input
+                  type="date"
+                  value={dueDraft}
+                  min={todayKey()}
+                  onChange={(event) => setDueDraft(event.target.value)}
+                  aria-label="Fecha opcional"
+                />
+                {dueDraft && (
+                  <button
+                    type="button"
+                    className="date-clear"
+                    onClick={() => setDueDraft('')}
+                    aria-label="Quitar fecha"
+                  >
+                    x
+                  </button>
+                )}
+              </label>
             </div>
           </form>
 
@@ -557,10 +647,23 @@ export default function App() {
 
                 <div className="task-copy">
                   <p>{task.text}</p>
-                  <small>
+                  <small className="task-meta">
                     <span className={`owner-tag owner-${task.owner.toLowerCase()}`}>
                       {task.owner}
                     </span>
+                    {(() => {
+                      const due = formatDueLabel(task.dueDate)
+                      if (!due) return null
+                      return (
+                        <span className={`due-tag due-${task.done ? 'done' : due.tone}`}>
+                          <svg viewBox="0 0 24 24" width="11" height="11" aria-hidden="true">
+                            <rect x="3" y="5" width="18" height="16" rx="3" stroke="currentColor" strokeWidth="2" fill="none" />
+                            <path d="M3 9h18M8 3v4M16 3v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                          </svg>
+                          {due.label}
+                        </span>
+                      )
+                    })()}
                   </small>
                 </div>
 

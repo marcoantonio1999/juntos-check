@@ -5,6 +5,7 @@ create table if not exists public.tasks (
   text text not null check (char_length(text) between 1 and 500),
   done boolean not null default false,
   owner text not null check (owner in ('Tu', 'Ella')),
+  due_date date,
   created_at timestamptz not null default now()
 );
 

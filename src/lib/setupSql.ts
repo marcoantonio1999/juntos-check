@@ -5,8 +5,11 @@ create table if not exists public.tasks (
   text text not null check (char_length(text) between 1 and 500),
   done boolean not null default false,
   owner text not null check (owner in ('Tu', 'Ella')),
+  due_date date,
   created_at timestamptz not null default now()
 );
+
+alter table public.tasks add column if not exists due_date date;
 
 create index if not exists tasks_created_at_idx on public.tasks (created_at desc);
 

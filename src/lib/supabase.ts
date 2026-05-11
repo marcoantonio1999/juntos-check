@@ -9,6 +9,7 @@ export type TaskRow = {
   text: string
   done: boolean
   owner: 'Tu' | 'Ella'
+  due_date: string | null
   created_at: string
 }
 

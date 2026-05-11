@@ -560,13 +560,84 @@ h2 {
   transform: translateY(0) scale(0.96);
 }
 
+.form-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .owner-switch {
   display: inline-flex;
   padding: 4px;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid var(--line);
   border-radius: 999px;
-  align-self: flex-start;
+}
+
+.date-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px 7px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--line);
+  color: var(--ink-mute);
+  font-size: 0.82rem;
+  transition: all 0.18s ease;
+  cursor: pointer;
+}
+
+.date-field:hover,
+.date-field:focus-within {
+  border-color: rgba(192, 132, 252, 0.45);
+  color: var(--ink-soft);
+}
+
+.date-field.has-value {
+  color: var(--ink);
+  background: var(--accent-grad-soft);
+  border-color: rgba(192, 132, 252, 0.35);
+}
+
+.date-field input[type='date'] {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  font-size: 0.82rem;
+  font-family: inherit;
+  outline: none;
+  min-width: 0;
+  width: auto;
+  color-scheme: dark;
+}
+
+.date-field input[type='date']::-webkit-calendar-picker-indicator {
+  filter: invert(0.7);
+  cursor: pointer;
+  margin-left: 4px;
+}
+
+.date-clear {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  border: 0;
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--ink-soft);
+  display: grid;
+  place-items: center;
+  font-size: 0.7rem;
+  line-height: 1;
+  padding: 0;
+}
+
+.date-clear:hover {
+  background: rgba(253, 164, 175, 0.2);
+  color: #fda4af;
 }
 
 .chip {
@@ -670,9 +741,18 @@ h2 {
   margin-top: 6px;
 }
 
-.owner-tag {
+.task-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.owner-tag,
+.due-tag {
   display: inline-flex;
   align-items: center;
+  gap: 4px;
   padding: 3px 9px;
   border-radius: 999px;
   font-size: 0.7rem;
@@ -689,6 +769,39 @@ h2 {
 .owner-ella {
   background: rgba(244, 114, 182, 0.14);
   color: #f9a8d4;
+}
+
+.due-tag {
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+
+.due-overdue {
+  background: rgba(253, 164, 175, 0.16);
+  color: #fda4af;
+  border: 1px solid rgba(253, 164, 175, 0.3);
+}
+
+.due-today {
+  background: rgba(252, 211, 77, 0.16);
+  color: #fcd34d;
+  border: 1px solid rgba(252, 211, 77, 0.3);
+}
+
+.due-soon {
+  background: rgba(192, 132, 252, 0.14);
+  color: #d8b4fe;
+}
+
+.due-future {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--ink-soft);
+}
+
+.due-done {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--ink-mute);
+  text-decoration: line-through;
 }
 
 .delete-button {
