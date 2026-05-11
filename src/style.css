@@ -385,6 +385,10 @@ h2 {
 }
 
 .error-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
   margin-bottom: 14px;
   padding: 10px 14px;
   border-radius: 14px;
@@ -392,6 +396,109 @@ h2 {
   border: 1px solid rgba(253, 164, 175, 0.2);
   color: #fda4af;
   font-size: 0.85rem;
+}
+
+.ghost-button-sm {
+  padding: 6px 10px;
+  font-size: 0.78rem;
+}
+
+.setup-panel {
+  position: relative;
+  padding: 22px 20px;
+  border-radius: 28px;
+  background: var(--bg-card);
+  border: 1px solid rgba(252, 211, 77, 0.2);
+  box-shadow: var(--shadow-card);
+  backdrop-filter: blur(28px) saturate(140%);
+  -webkit-backdrop-filter: blur(28px) saturate(140%);
+}
+
+.setup-head h2 {
+  margin-top: 10px;
+  font-size: 1.2rem;
+}
+
+.setup-head p {
+  margin-top: 8px;
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+  line-height: 1.5;
+}
+
+.setup-head p code {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 0.8rem;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--line);
+  color: var(--ink);
+}
+
+.setup-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #fcd34d;
+  background: rgba(252, 211, 77, 0.1);
+  border: 1px solid rgba(252, 211, 77, 0.25);
+}
+
+.setup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.primary-link {
+  display: inline-flex;
+  align-items: center;
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: var(--accent-grad);
+  color: #fff;
+  text-decoration: none;
+  font-size: 0.85rem;
+  font-weight: 600;
+  box-shadow: var(--glow);
+  transition: transform 0.18s ease, filter 0.18s ease;
+}
+
+.primary-link:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.08);
+}
+
+.setup-sql {
+  margin: 18px 0 14px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--line);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 0.72rem;
+  color: #d8d3eb;
+  line-height: 1.5;
+  max-height: 220px;
+  overflow: auto;
+  white-space: pre;
+}
+
+.setup-hint {
+  font-size: 0.82rem;
+  color: var(--ink-mute);
+  line-height: 1.5;
+}
+
+.setup-hint strong {
+  color: #6ee7b7;
 }
 
 .task-form {

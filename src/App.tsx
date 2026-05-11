@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { isSupabaseConfigured, supabase } from './lib/supabase'
 import type { TaskRow } from './lib/supabase'
+import { SETUP_SQL, getProjectRef, getSqlEditorUrl } from './lib/setupSql'
 
 type Owner = 'Tu' | 'Ella'
 
@@ -13,7 +14,16 @@ type Task = {
   createdAt: number
 }
 
-type SyncStatus = 'idle' | 'loading' | 'live' | 'offline' | 'error'
+type SyncStatus = 'idle' | 'loading' | 'live' | 'offline' | 'error' | 'setup'
+
+function isMissingTableError(error: { code?: string; message?: string } | null) {
+  if (!error) return false
+  if (error.code === '42P01' || error.code === 'PGRST205' || error.code === 'PGRST204') {
+    return true
+  }
+  const msg = error.message?.toLowerCase() ?? ''
+  return msg.includes('does not exist') || msg.includes('relation') || msg.includes('schema cache')
+}
 
 const localKey = 'juntos-check.tasks'
 
@@ -81,12 +91,16 @@ export default function App() {
     localStorage.setItem(localKey, JSON.stringify(tasks))
   }, [tasks])
 
+  const [reloadCount, setReloadCount] = useState(0)
+
   useEffect(() => {
     if (!supabase) return
 
     let cancelled = false
 
     async function fetchAll() {
+      setStatus((current) => (current === 'live' ? current : 'loading'))
+
       const { data, error } = await supabase!
         .from('tasks')
         .select('*')
@@ -95,8 +109,13 @@ export default function App() {
       if (cancelled) return
 
       if (error) {
-        setStatus('error')
-        setErrorMessage(error.message)
+        if (isMissingTableError(error)) {
+          setStatus('setup')
+          setErrorMessage(null)
+        } else {
+          setStatus('error')
+          setErrorMessage(error.message)
+        }
         return
       }
 
@@ -145,7 +164,7 @@ export default function App() {
       cancelled = true
       supabase!.removeChannel(channel)
     }
-  }, [])
+  }, [reloadCount])
 
   const orderedTasks = useMemo(
     () =>
@@ -183,8 +202,13 @@ export default function App() {
 
       if (error || !data) {
         setTasks((current) => current.filter((task) => task.id !== tempId))
-        setErrorMessage(error?.message ?? 'No se pudo guardar la tarea')
-        setStatus('error')
+        if (isMissingTableError(error)) {
+          setStatus('setup')
+          setErrorMessage(null)
+        } else {
+          setErrorMessage(error?.message ?? 'No se pudo guardar la tarea')
+          setStatus('error')
+        }
         return
       }
 
@@ -282,10 +306,42 @@ export default function App() {
         return 'Modo local'
       case 'error':
         return 'Sin conexion'
+      case 'setup':
+        return 'Falta setup'
       default:
         return ''
     }
   })()
+
+  const projectRef = getProjectRef(
+    import.meta.env.VITE_SUPABASE_URL as string | undefined,
+  )
+  const sqlEditorUrl = getSqlEditorUrl(projectRef)
+  const [sqlCopied, setSqlCopied] = useState(false)
+
+  async function copySetupSql() {
+    try {
+      await navigator.clipboard.writeText(SETUP_SQL)
+      setSqlCopied(true)
+      setTimeout(() => setSqlCopied(false), 2000)
+    } catch {
+      setSqlCopied(false)
+    }
+  }
+
+  function retryConnection() {
+    setStatus('loading')
+    setErrorMessage(null)
+    setReloadCount((count) => count + 1)
+  }
+
+  useEffect(() => {
+    if (status !== 'setup') return
+    const id = window.setInterval(() => {
+      setReloadCount((count) => count + 1)
+    }, 5000)
+    return () => window.clearInterval(id)
+  }, [status])
 
   return (
     <main className="shell">
@@ -340,6 +396,49 @@ export default function App() {
           </div>
         </header>
 
+        {status === 'setup' && (
+          <section className="setup-panel" role="region" aria-label="Falta setup">
+            <header className="setup-head">
+              <span className="setup-badge">Setup pendiente</span>
+              <h2>Crea la tabla en Supabase</h2>
+              <p>
+                La conexion funciona pero la tabla <code>tasks</code> no existe
+                todavia. Corre este SQL una sola vez y la app empieza a
+                sincronizar al instante.
+              </p>
+            </header>
+
+            <div className="setup-actions">
+              {sqlEditorUrl && (
+                <a
+                  className="primary-link"
+                  href={sqlEditorUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Abrir SQL Editor con el codigo pegado
+                </a>
+              )}
+              <button type="button" className="ghost-button" onClick={copySetupSql}>
+                {sqlCopied ? 'Copiado!' : 'Copiar SQL'}
+              </button>
+              <button type="button" className="ghost-button" onClick={retryConnection}>
+                Ya lo corri, reintentar
+              </button>
+            </div>
+
+            <pre className="setup-sql">
+              <code>{SETUP_SQL}</code>
+            </pre>
+
+            <p className="setup-hint">
+              Pasos: abre el SQL Editor (boton de arriba), aprieta el boton
+              verde <strong>Run</strong> y vuelve aqui. La app reintenta sola
+              cada pocos segundos.
+            </p>
+          </section>
+        )}
+
         <section className="panel">
           <div className="panel-head">
             <div>
@@ -359,7 +458,14 @@ export default function App() {
 
           {errorMessage && (
             <div className="error-banner" role="alert">
-              {errorMessage}
+              <span>{errorMessage}</span>
+              <button
+                type="button"
+                className="ghost-button ghost-button-sm"
+                onClick={retryConnection}
+              >
+                Reintentar
+              </button>
             </div>
           )}
 
