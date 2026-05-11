@@ -1,11 +1,11 @@
 {
   "name": "Juntos Check",
   "short_name": "Juntos",
-  "description": "Lista compartida para dos, pensada para una prueba rapida en iPhone.",
+  "description": "Lista compartida para dos, en tiempo real.",
   "start_url": "./",
   "display": "standalone",
-  "background_color": "#fff7f4",
-  "theme_color": "#fff7f4",
+  "background_color": "#0a0712",
+  "theme_color": "#0a0712",
   "icons": [
     {
       "src": "./favicon.svg",
