@@ -486,8 +486,12 @@ export default function App() {
         <header className="hero-card">
           <div className="hero-top">
             <span className="brand-mark" aria-hidden="true">
-              <span />
-              <span />
+              <svg viewBox="0 0 24 24" width="20" height="20">
+                <path
+                  d="M12 21s-7-4.5-9.3-9.1C1 8 3.2 4 7 4c2.1 0 3.7 1.1 5 3 1.3-1.9 2.9-3 5-3 3.8 0 6 4 4.3 7.9C19 16.5 12 21 12 21z"
+                  fill="#fff"
+                />
+              </svg>
             </span>
             <span className={`status-pill status-${status}`}>
               <span className="status-dot" />
